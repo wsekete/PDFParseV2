@@ -4,8 +4,11 @@ import PyPDF2
 import pdfplumber
 import json
 import uuid
+import csv
+import io
 from typing import Dict, List, Any, Optional
 from pathlib import Path
+from datetime import datetime
 import logging
 
 # Configure logging
@@ -34,9 +37,27 @@ class PDFFieldExtractor:
         try:
             logger.info(f"Starting field extraction for: {pdf_path}")
             
-            # Validate input file exists
-            if not Path(pdf_path).exists():
+            # Validate input file exists and is readable
+            pdf_file = Path(pdf_path)
+            if not pdf_file.exists():
                 raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+            if not pdf_file.is_file():
+                raise ValueError(f"Path is not a file: {pdf_path}")
+            if pdf_file.suffix.lower() != '.pdf':
+                raise ValueError(f"File is not a PDF: {pdf_path}")
+            if pdf_file.stat().st_size == 0:
+                raise ValueError(f"PDF file is empty: {pdf_path}")
+            if pdf_file.stat().st_size > 100 * 1024 * 1024:  # 100MB limit
+                logger.warning(f"Large PDF file ({pdf_file.stat().st_size / 1024 / 1024:.1f}MB): {pdf_path}")
+            
+            # Test file readability
+            try:
+                with open(pdf_path, 'rb') as test_file:
+                    test_file.read(8)  # Read PDF header
+            except PermissionError:
+                raise PermissionError(f"Permission denied reading PDF: {pdf_path}")
+            except IOError as e:
+                raise IOError(f"Cannot read PDF file: {pdf_path} - {str(e)}")
             
             # Step 1: Extract acrofields using PyPDF2
             logger.info("Extracting acrofields with PyPDF2...")
@@ -62,19 +83,61 @@ class PDFFieldExtractor:
             logger.info("Enhancing output structure for CSV compatibility...")
             enhanced_data = self._enhance_output_structure(final_data)
             
+            # Step 7: Export to CSV if requested
+            csv_export_success = False
+            if output_format.lower() == 'csv':
+                csv_path = pdf_path.replace('.pdf', '_extracted_fields.csv')
+                logger.info(f"Exporting to CSV format: {csv_path}")
+                csv_export_success = self.export_to_csv(enhanced_data, csv_path)
+            
             return {
                 'success': True,
                 'data': enhanced_data,
                 'field_count': len(enhanced_data),
                 'pages_processed': self._get_page_count(pdf_path),
-                'output_format': output_format
+                'output_format': output_format,
+                'csv_export_success': csv_export_success if output_format.lower() == 'csv' else None
             }
             
-        except Exception as e:
-            logger.error(f"Error extracting fields from {pdf_path}: {str(e)}")
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {str(e)}")
             return {
                 'success': False,
-                'error': str(e),
+                'error': f"File not found: {str(e)}",
+                'error_type': 'FileNotFoundError',
+                'data': []
+            }
+        except PermissionError as e:
+            logger.error(f"Permission denied: {str(e)}")
+            return {
+                'success': False,
+                'error': f"Permission denied: {str(e)}",
+                'error_type': 'PermissionError',
+                'data': []
+            }
+        except ValueError as e:
+            logger.error(f"Invalid PDF or parameters: {str(e)}")
+            return {
+                'success': False,
+                'error': f"Invalid PDF or parameters: {str(e)}",
+                'error_type': 'ValueError',
+                'data': []
+            }
+        except PyPDF2.errors.PdfReadError as e:
+            logger.error(f"PDF read error: {str(e)}")
+            return {
+                'success': False,
+                'error': f"PDF read error: {str(e)}",
+                'error_type': 'PdfReadError',
+                'data': []
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error extracting fields from {pdf_path}: {str(e)}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            return {
+                'success': False,
+                'error': f"Unexpected error: {str(e)}",
+                'error_type': type(e).__name__,
                 'data': []
             }
     
@@ -85,12 +148,34 @@ class PDFFieldExtractor:
         
         try:
             with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+                try:
+                    pdf_reader = PyPDF2.PdfReader(file)
+                except PyPDF2.errors.PdfReadError as e:
+                    raise ValueError(f"Invalid or corrupted PDF file: {pdf_path} - {str(e)}")
+                except Exception as e:
+                    raise RuntimeError(f"Failed to read PDF with PyPDF2: {pdf_path} - {str(e)}")
+                
+                # Validate PDF structure
+                if len(pdf_reader.pages) == 0:
+                    raise ValueError(f"PDF has no pages: {pdf_path}")
+                
+                # Check if PDF is encrypted
+                if pdf_reader.is_encrypted:
+                    logger.warning(f"PDF is encrypted, attempting to decrypt: {pdf_path}")
+                    try:
+                        pdf_reader.decrypt('')  # Try empty password
+                    except Exception as e:
+                        raise ValueError(f"Cannot decrypt encrypted PDF: {pdf_path} - {str(e)}")
                 
                 # Check if PDF has form fields
-                form_fields = pdf_reader.get_fields()
+                try:
+                    form_fields = pdf_reader.get_fields()
+                except Exception as e:
+                    logger.warning(f"Error accessing form fields, PDF may not have AcroForm: {pdf_path} - {str(e)}")
+                    return []
+                
                 if form_fields is None:
-                    logger.warning(f"No form fields found in {pdf_path}")
+                    logger.warning(f"No AcroForm fields found in {pdf_path}")
                     return []
                 
                 logger.info(f"Found {len(form_fields)} form fields")
@@ -1301,6 +1386,162 @@ class PDFFieldExtractor:
         except Exception as e:
             logger.error(f"Error getting page count: {str(e)}")
             return 0
+    
+    def export_to_csv(self, field_data: List[Dict], output_path: str, form_id: str = "52471") -> bool:
+        """Export field data to CSV format matching training data schema exactly.
+        
+        Args:
+            field_data: List of field dictionaries from extract_fields
+            output_path: Path to save the CSV file
+            form_id: Form ID to use in the CSV (default matches training data)
+            
+        Returns:
+            bool: True if export successful, False otherwise
+        """
+        try:
+            logger.info(f"Exporting {len(field_data)} fields to CSV: {output_path}")
+            
+            # CSV schema from training data
+            csv_headers = [
+                'ID', 'Created at', 'Updated at', 'Label', 'Description', 'Form ID', 'Order', 
+                'Api name', 'UUID', 'Type', 'Parent ID', 'Delete Parent ID', 'Acrofieldlabel', 
+                'Section ID', 'Excluded', 'Partial label', 'Custom', 'Show group label', 
+                'Height', 'Page', 'Width', 'X', 'Y', 'Unified field ID', 'Delete', 'Hidden', 
+                'Toggle description'
+            ]
+            
+            with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # Write BOM for Excel compatibility (like training data)
+                csvfile.write('\ufeff')
+                csvfile.seek(0, 2)  # Move to end after BOM
+                
+                # Write header
+                writer.writerow(csv_headers)
+                
+                # Convert field data to CSV rows
+                csv_rows = self._convert_fields_to_csv_rows(field_data, form_id)
+                
+                # Write data rows
+                for row in csv_rows:
+                    writer.writerow(row)
+            
+            logger.info(f"Successfully exported {len(csv_rows)} rows to {output_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error exporting to CSV: {str(e)}")
+            return False
+    
+    def _convert_fields_to_csv_rows(self, field_data: List[Dict], form_id: str) -> List[List]:
+        """Convert field data to CSV rows matching training data schema."""
+        csv_rows = []
+        current_time = datetime.now().isoformat() + 'Z'
+        section_id_map = self._generate_section_ids(field_data)
+        
+        # Sort fields for consistent ordering
+        sorted_fields = sorted(field_data, key=lambda x: (
+            x.get('bem_category', 'zzz'),  # Sort by category
+            x.get('type', 'zzz'),          # Then by type  
+            x.get('name', 'zzz')           # Then by name
+        ))
+        
+        for order, field in enumerate(sorted_fields, 1):
+            # Generate unique ID (simulate database auto-increment)
+            field_id = 6727000 + order
+            
+            # Map field to CSV row format
+            csv_row = [
+                field_id,                                          # ID
+                current_time,                                      # Created at
+                current_time,                                      # Updated at
+                self._generate_field_label(field),                # Label
+                field.get('description', ''),                     # Description
+                form_id,                                          # Form ID
+                order,                                            # Order
+                field.get('name', ''),                           # Api name
+                field.get('id', str(uuid.uuid4())),             # UUID
+                field.get('type', 'TextField'),                  # Type
+                self._get_parent_id(field, sorted_fields),       # Parent ID
+                'Delete Parent ID',                              # Delete Parent ID (constant)
+                field.get('name', ''),                           # Acrofieldlabel
+                section_id_map.get(field.get('bem_category', 'general-information'), 8261), # Section ID
+                'false',                                         # Excluded
+                field.get('name', ''),                          # Partial label
+                'false',                                         # Custom
+                'true' if field.get('type') == 'RadioGroup' else 'false', # Show group label
+                field.get('height', ''),                         # Height
+                field.get('page', ''),                          # Page
+                field.get('width', ''),                         # Width
+                field.get('x', ''),                             # X
+                field.get('y', ''),                             # Y
+                900 + order,                                     # Unified field ID
+                'Delete',                                        # Delete (constant)
+                'false',                                         # Hidden
+                'false'                                          # Toggle description
+            ]
+            
+            csv_rows.append(csv_row)
+        
+        return csv_rows
+    
+    def _generate_field_label(self, field: Dict) -> str:
+        """Generate human-readable label from field name."""
+        field_name = field.get('name', '')
+        field_type = field.get('type', 'TextField')
+        
+        # For RadioGroups, create descriptive labels
+        if field_type == 'RadioGroup':
+            if 'address-change' in field_name:
+                return 'Address Change Options'
+            elif 'name-change' in field_name and 'reason' in field_name:
+                return 'Reason for Change'
+            elif 'name-change' in field_name:
+                return 'Change the name of'
+            elif 'dividend' in field_name:
+                return 'Future Dividend Application'
+            elif 'frequency' in field_name:
+                return 'Frequency'
+            elif 'stop' in field_name:
+                return 'Stopping Payment Options'
+            else:
+                return field_name.replace('--group', '').replace('_', ' ').title()
+        
+        # For other fields, generate from BEM name
+        if '_' in field_name:
+            parts = field_name.split('_')
+            if len(parts) >= 2:
+                element = parts[-1]  # Last part is usually the element
+                return element.replace('-', ' ').title()
+        
+        # Fallback
+        return field_name.replace('_', ' ').replace('-', ' ').title()
+    
+    def _get_parent_id(self, field: Dict, all_fields: List[Dict]) -> str:
+        """Get parent ID for RadioButton fields."""
+        if field.get('type') == 'RadioButton':
+            parent_group = field.get('parent_group', '')
+            if parent_group:
+                # Find the RadioGroup with matching name
+                for i, other_field in enumerate(all_fields):
+                    if (other_field.get('type') == 'RadioGroup' and 
+                        other_field.get('name') == parent_group):
+                        return str(6727000 + i + 1)  # Match ID generation logic
+        
+        return ''  # No parent
+    
+    def _generate_section_ids(self, field_data: List[Dict]) -> Dict[str, int]:
+        """Generate section IDs for different BEM categories."""
+        categories = set(field.get('bem_category', 'general-information') for field in field_data)
+        
+        section_id_map = {}
+        base_section_id = 8261
+        
+        for i, category in enumerate(sorted(categories)):
+            section_id_map[category] = base_section_id + i
+        
+        return section_id_map
 
 
 # Test the basic class structure
