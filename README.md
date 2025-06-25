@@ -4,13 +4,13 @@
 
 ## Overview
 
-PDFParseV2 is a production-ready system that extracts PDF form fields with perfect accuracy and prepares them for AI-powered intelligent naming. **Phase 1** delivers complete field extraction including complex RadioGroup hierarchies, while **Phase 2** will add Claude AI-powered intelligent naming.
+PDFParseV2 is an internal system that extracts PDF form fields with perfect accuracy and prepares them for AI-powered intelligent naming. **Phase 1** delivers complete field extraction including complex RadioGroup hierarchies, while **Phase 2** will add Claude AI-powered intelligent naming.
 
 ### ✅ Phase 1 - Complete Field Extraction (100% DONE)
 - **Perfect field extraction** from any PDF form with 100% accuracy
 - **Complete radio button support** including RadioGroup → RadioButton parent-child relationships  
 - **Multi-format output** with JSON and CSV export matching training data schemas
-- **Production CLI** for single file and batch processing
+- **Command-line interface** for single file and batch processing
 - **Comprehensive testing** with 15+ unit tests and real PDF validation
 
 ## ✅ Current Features (Phase 1)
@@ -18,7 +18,7 @@ PDFParseV2 is a production-ready system that extracts PDF form fields with perfe
 - **Perfect Field Extraction**: 100% accurate extraction of all PDF form field types
 - **RadioGroup Detection**: Complete parent-child relationship mapping for radio button groups
 - **Multi-Format Export**: JSON and CSV output with training data schema compatibility
-- **Command Line Interface**: Production-ready CLI with single file and batch processing
+- **Command Line Interface**: CLI with single file and batch processing
 - **Error Handling**: Robust handling of corrupted PDFs, encryption, and edge cases
 - **Comprehensive Testing**: 15+ unit tests plus integration tests with real PDFs
 - **Cross-PDF Validation**: Tested across 14+ different form types and structures
