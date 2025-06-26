@@ -59,7 +59,7 @@ pip install -r requirements.txt
 ./pdf_extract info document.pdf
 
 # Show help
-./pdf_extract --help
+./pdf_extract --help 
 ```
 
 ### Python API Usage
