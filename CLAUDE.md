@@ -1,5 +1,8 @@
 # PDFParseV2 - Project Documentation
 
+## 🚨 **IMPORTANT: Task Management**
+**Before starting any new tasks, always reference `PHASE2_TASKS.md` for the current phase implementation plan and detailed task breakdown. This ensures proper sequencing and avoids duplicate work.**
+
 ## Project Overview
 
 PDFParseV2 is an automated PDF form field naming system that uses Claude AI and MCP (Model Context Protocol) tools to intelligently rename PDF form fields according to a BEM-like naming convention. The system extracts field metadata, applies intelligent naming using established patterns from training data, and safely modifies PDFs with the new field names.
@@ -329,22 +332,33 @@ PDFParseV2/
 ./pdf_extract --help
 ```
 
-## Next Steps - Phase 2 Planning
+## Next Steps - Phase 2: Claude Desktop Integration
 
-### Phase 2: AI-Powered Field Naming (READY TO START)
-**Objective**: Implement intelligent field naming using Claude AI and training data patterns
+### 🚀 **Phase 2: AI-Powered Field Naming (IN PLANNING)**  
+**Objective**: Create seamless Claude Desktop workflow for intelligent PDF field naming
+
+**See `PHASE2_TASKS.md` for detailed implementation plan**
 
 **Key Components**:
-1. **Training Data Analysis Engine** - Pattern recognition from 836,504+ field records
-2. **BEM Naming Intelligence** - Smart application of Block_Element__Modifier conventions  
-3. **Context-Aware Categorization** - Use surrounding text and field positioning for naming
-4. **Confidence Scoring** - Provide alternative naming suggestions with confidence levels
-5. **Interactive Refinement** - Integration with Claude for human-in-the-loop improvements
+1. **MCP Server Development** - Claude Desktop integration with PDF processing tools
+2. **Intelligent Naming Engine** - AI-powered BEM naming with 6,338 training examples
+3. **Interactive Review Interface** - Structured artifacts for name editing and validation  
+4. **PDF Modifier Foundation** - Structured output for safe PDF field renaming
+5. **End-to-End Workflow** - Upload PDF → Extract → Generate Names → Review → Export
+
+**Target Workflow**:
+1. Upload PDF to Claude Desktop
+2. Automatic field extraction via `./pdf_extract`
+3. AI generates BEM-style names using training data patterns
+4. Interactive review with editable table artifacts
+5. Export structured mapping for PDF modification
+
+**Current Status**: Phase 1 Complete ✅ | Phase 2 Planning Complete ✅ | Ready for Implementation 🚀
 
 ---
 
-**Last Updated**: 2025-01-24  
-**Phase**: 1 - PDF Field Extractor Implementation (100% COMPLETE) 🎉
-**Status**: Complete field extraction with CLI interface and comprehensive testing
-**Achievement**: Perfect 73/73 field extraction from LIFE-1528-Q with complete RadioGroup hierarchies
-**Ready for**: Phase 2 - AI-Powered Field Naming System
+**Last Updated**: 2025-06-26  
+**Phase**: 2 - Claude Desktop Integration (PLANNING COMPLETE) 📋
+**Status**: Phase 1 complete, Phase 2 detailed task breakdown ready for implementation
+**Achievement**: Perfect CSV export with field labels, coordinates, and BEM names working
+**Ready for**: Phase 2.1.1 - MCP Server Architecture implementation

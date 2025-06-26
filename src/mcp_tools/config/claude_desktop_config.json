@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "pdf-naming": {
+      "command": "python",
+      "args": [
+        "/Users/wseke/Desktop/PDFParseV2/src/mcp_tools/pdf_naming_server.py"
+      ],
+      "cwd": "/Users/wseke/Desktop/PDFParseV2",
+      "env": {
+        "PYTHONPATH": "/Users/wseke/Desktop/PDFParseV2"
+      }
+    }
+  }
+}
