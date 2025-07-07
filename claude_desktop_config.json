@@ -1,14 +1,19 @@
 {
   "mcpServers": {
-    "pdf-naming": {
+    "pdf-field-modifier": {
       "command": "python",
       "args": [
-        "/Users/wseke/Desktop/PDFParseV2/src/mcp_tools/pdf_naming_server.py"
+        "/Users/wseke/Desktop/PDFParseV2/src/pdf_modifier/mcp_server.py"
       ],
       "cwd": "/Users/wseke/Desktop/PDFParseV2",
       "env": {
         "PYTHONPATH": "/Users/wseke/Desktop/PDFParseV2"
-      }
+      },
+      "description": "PDF Field Modifier - AI-powered PDF form field renaming engine"
     }
+  },
+  "global": {
+    "allowAnalytics": false,
+    "logLevel": "info"
   }
 }
