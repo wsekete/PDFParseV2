@@ -21,7 +21,7 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
+# Virtual environments
 venv/
 env/
 ENV/
@@ -34,33 +34,6 @@ ENV/
 *.swo
 *~
 
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-.tox/
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-
-# Environment Variables
-.env
-.env.local
-.env.production
-
-# PDF Test Files
-tests/fixtures/*.pdf
-examples/*.pdf
-temp/*.pdf
-backups/*.pdf
-
-# Logs
-*.log
-logs/
-*.log.*
-
 # OS
 .DS_Store
 .DS_Store?
@@ -70,11 +43,20 @@ logs/
 ehthumbs.db
 Thumbs.db
 
+# Logs
+*.log
+logs/
+
 # Temporary files
-temp/
-tmp/
 *.tmp
 *.temp
+temp/
 
-# Training data (if sensitive)
-# training_data/
+# Local configuration
+.env
+.env.local
+local_config.json
+
+# Archive (keep archived files in repo)
+# archive/ - we want to keep this for reference
+EOF < /dev/null

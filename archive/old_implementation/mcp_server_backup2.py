@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Updated PDF Field Modifier MCP Server with Enhanced BEM Field Naming Tool
+Updated PDF Field Modifier MCP Server with BEM Field Naming Tool
 PDFParseV2 - AI-Powered PDF Field Renaming Engine + BEM Field Name Generator
 
 MCP (Model Context Protocol) server for PDF form field modification and BEM field naming.
@@ -62,7 +62,7 @@ async def list_tools() -> List[Tool]:
     return [
         Tool(
             name="generate_bem_field_names",
-            description="🚀 Generate BEM field names for PDF forms using financial services naming conventions. Upload a PDF to Claude Desktop first, then use this tool with the filename to get section-by-section BEM field breakdown with field types and radio group handling.",
+            description="🚀 Generate BEM field names for PDF forms using financial services naming conventions. Upload a PDF to Claude Desktop first, then use this tool with the filename to get section-by-section BEM field breakdown and JSON mapping.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -186,7 +186,8 @@ async def generate_bem_field_names(pdf_filename: str) -> List[TextContent]:
     """
     🚀 Generate BEM field names for uploaded PDF forms using financial services conventions.
     
-    Enhanced version that includes field types and proper radio group handling.
+    This tool uses the proven Name Generation Prompt to analyze PDF forms and create
+    section-by-section BEM field breakdowns with JSON mappings.
     
     Args:
         pdf_filename: Name of the PDF file that was uploaded to Claude Desktop
@@ -196,14 +197,15 @@ async def generate_bem_field_names(pdf_filename: str) -> List[TextContent]:
     """
     
     try:
-        # Enhanced prompt with field types and radio group handling
+        # The exact prompt that worked perfectly in our testing
         prompt = f"""I've uploaded a PDF file named "{pdf_filename}". Generate BEM field names for this PDF form using our financial services naming conventions.
 
 Create a section-by-section field breakdown showing:
 - Each form section
 - All fields within that section  
 - Generated BEM names for each field
-- Field type in parentheses after each field name
+
+Also provide a JSON mapping ready for the PDF modifier tool.
 
 Use the BEM naming convention system:
 - block_element__modifier format
@@ -214,35 +216,51 @@ Use the BEM naming convention system:
 - All lowercase with hyphens for multi-word terms
 
 Follow these established patterns:
-- owner-information_first-name (TextField)
-- name-change_reason--group (RadioGroup)
-- name-change_reason__marriage (RadioButton)
-- signatures_owner (TextField)
-- signatures_owner-signature (Signature)
-- billing-frequency__annual (RadioButton)
-
-For radio buttons, always include:
-1. The radio group container with --group suffix
-2. Individual radio button options with __modifier format
+- owner-information_first-name, owner-information_last-name
+- name-change_reason__marriage, name-change_reason__divorce
+- signatures_owner, signatures_owner-date
+- address-change_policy-owner_name, address-change_insured_city
+- billing-frequency__annual, billing-frequency__quarterly
 
 Format the output as:
 
 ## Section-by-Section BEM Field Breakdown:
 
 ### Section Name
-* bem-field-name-1 (FieldType)
-* bem-field-name-2 (FieldType)
-* radio-group-name--group (RadioGroup)
-* radio-group-name__option1 (RadioButton)
-* radio-group-name__option2 (RadioButton)
+* bem-field-name-1
+* bem-field-name-2
+* bem-field-name-3
 
 ### Another Section  
-* bem-field-name-4 (FieldType)
-* bem-field-name-5 (FieldType)
+* bem-field-name-4
+* bem-field-name-5
 
-Field types to use: TextField, Checkbox, RadioGroup, RadioButton, Signature, DateField"""
+## JSON Mapping Structure:
+
+```json
+{{
+  "pdf_metadata": {{
+    "form_type": "detected form type",
+    "form_id": "detected form identifier", 
+    "field_count": number_of_fields,
+    "extraction_timestamp": "{datetime.now().isoformat()}",
+    "original_file": "{pdf_filename}"
+  }},
+  "field_mappings": [
+    {{
+      "field_id": "unique_id",
+      "original_name": "field label as it appears in PDF",
+      "generated_name": "bem-style-name",
+      "field_type": "TextField|Checkbox|RadioButton|Signature|DateField",
+      "section": "section name from form",
+      "confidence": "high|medium|low",
+      "reasoning": "brief explanation for the naming choice"
+    }}
+  ]
+}}
+```"""
         
-        # Return the enhanced prompt for Claude to execute naturally
+        # Return the prompt for Claude to execute naturally
         return [TextContent(type="text", text=prompt)]
         
     except Exception as e:
@@ -261,26 +279,18 @@ async def test_connection(include_version_info: bool = True) -> List[TextContent
     try:
         test_result = {
             "status": "success",
-            "message": "✅ PDF Field Modifier + Enhanced BEM Name Generator is working correctly with Claude Desktop integration!",
-            "architecture": "Claude Desktop Intelligence + PyPDFForm PDF Field Modification + Enhanced BEM Field Naming",
+            "message": "✅ PDF Field Modifier + BEM Name Generator is working correctly with Claude Desktop integration!",
+            "architecture": "Claude Desktop Intelligence + PyPDFForm PDF Field Modification + BEM Field Naming",
             "server_name": "pdf-field-modifier",
             "tools_available": ["generate_bem_field_names", "modify_pdf_fields_v2", "extract_pdf_fields_enhanced", "preview_field_renames", "test_connection"],
-            "workflow": "Upload PDF to Claude → Use generate_bem_field_names tool → Get BEM names with field types → Use modify_pdf_fields_v2 to rename fields",
+            "workflow": "Upload PDF to Claude → Use generate_bem_field_names tool → Get BEM names → Use modify_pdf_fields_v2 to rename fields",
             "capabilities": [
-                "🚀 Enhanced BEM field name generation with field types",
-                "Radio group handling with --group suffix",
-                "Financial services naming conventions",
+                "🚀 BEM field name generation with financial services conventions",
                 "PyPDFForm-based field renaming (95%+ success rate)",
                 "RadioGroup and complex hierarchy support",
                 "All PDF field types supported",
                 "Progress tracking and validation",
                 "Automatic backup and safety features"
-            ],
-            "enhancements": [
-                "Field types displayed in output (TextField, Checkbox, etc.)",
-                "Radio group containers with --group suffix",
-                "Individual radio button options with __modifier",
-                "No JSON output for cleaner results"
             ],
             "integration": "Claude Desktop handles field extraction and BEM naming generation",
             "timestamp": datetime.now().isoformat()
@@ -493,7 +503,7 @@ if __name__ == "__main__":
         try:
             from mcp.server.stdio import stdio_server
             
-            logger.info("Starting PDF Field Modifier + Enhanced BEM Name Generator MCP Server...")
+            logger.info("Starting PDF Field Modifier + BEM Name Generator MCP Server...")
             async with stdio_server() as (read_stream, write_stream):
                 await app.run(
                     read_stream, 

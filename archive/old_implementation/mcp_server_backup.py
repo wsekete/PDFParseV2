@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-Updated PDF Field Modifier MCP Server with Enhanced BEM Field Naming Tool
-PDFParseV2 - AI-Powered PDF Field Renaming Engine + BEM Field Name Generator
+PDF Field Modifier MCP Server
+PDFParseV2 - AI-Powered PDF Field Renaming Engine
 
-MCP (Model Context Protocol) server for PDF form field modification and BEM field naming.
+MCP (Model Context Protocol) server for PDF form field modification.
 Designed to work with Claude Desktop for intelligent PDF field analysis and renaming.
+
+Architecture:
+- Claude handles field extraction and BEM naming generation
+- This MCP server handles actual PDF field modification
+- PyPDFForm engine (PRIMARY - 95%+ success rate) with PyPDF2 fallback for compatibility
 """
 
 import json
@@ -18,13 +23,14 @@ from typing import Dict, List, Any, Optional, Union
 
 # PDF Processing Libraries
 try:
+    # PyPDFForm - Primary PDF form field manipulation
     from PyPDFForm import PdfWrapper
     PYPDFFORM_AVAILABLE = True
 except ImportError:
     print("Warning: PyPDFForm not available. Install with: pip install PyPDFForm==3.1.2")
     PYPDFFORM_AVAILABLE = False
 
-# Import our PyPDFForm wrapper
+# Import our new PyPDFForm wrapper
 try:
     from .pypdfform_field_renamer import PyPDFFormFieldRenamer, ProgressUpdate
     WRAPPER_AVAILABLE = True
@@ -56,24 +62,11 @@ logger = logging.getLogger(__name__)
 
 app = Server("pdf-field-modifier")
 
+
 @app.list_tools()
 async def list_tools() -> List[Tool]:
-    """List available MCP tools - BEM tool listed first for easy access."""
+    """List available MCP tools - PyPDFForm tools listed first as PRIMARY engines."""
     return [
-        Tool(
-            name="generate_bem_field_names",
-            description="🚀 Generate BEM field names for PDF forms using financial services naming conventions. Upload a PDF to Claude Desktop first, then use this tool with the filename to get section-by-section BEM field breakdown with field types and radio group handling.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "pdf_filename": {
-                        "type": "string",
-                        "description": "Name of the PDF file that was uploaded to Claude Desktop (include .pdf extension)"
-                    }
-                },
-                "required": ["pdf_filename"]
-            }
-        ),
         Tool(
             name="modify_pdf_fields_v2",
             description="Enhanced PDF field modification using PyPDFForm. Handles RadioGroups, complex hierarchies, and all PDF field types reliably. Claude Desktop handles field analysis and naming.",
@@ -162,8 +155,6 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
     try:
         if name == "test_connection":
             return await test_connection(**arguments)
-        elif name == "generate_bem_field_names":
-            return await generate_bem_field_names(**arguments)
         elif name == "modify_pdf_fields_v2":
             return await modify_pdf_fields_v2(**arguments)
         elif name == "preview_field_renames":
@@ -182,105 +173,22 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
         }
         return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
 
-async def generate_bem_field_names(pdf_filename: str) -> List[TextContent]:
-    """
-    🚀 Generate BEM field names for uploaded PDF forms using financial services conventions.
-    
-    Enhanced version that includes field types and proper radio group handling.
-    
-    Args:
-        pdf_filename: Name of the PDF file that was uploaded to Claude Desktop
-    
-    Returns:
-        Analysis prompt for Claude to execute with the uploaded PDF
-    """
-    
-    try:
-        # Enhanced prompt with field types and radio group handling
-        prompt = f"""I've uploaded a PDF file named "{pdf_filename}". Generate BEM field names for this PDF form using our financial services naming conventions.
-
-Create a section-by-section field breakdown showing:
-- Each form section
-- All fields within that section  
-- Generated BEM names for each field
-- Field type in parentheses after each field name
-
-Use the BEM naming convention system:
-- block_element__modifier format
-- Financial services blocks like: owner-information, name-change, signatures, address-change, etc.
-- Proper modifiers for variations and options (e.g., __marriage, __annual, __primary-insured)
-- Radio group handling with --group suffix for containers
-- Checkbox naming for individual options
-- All lowercase with hyphens for multi-word terms
-
-Follow these established patterns:
-- owner-information_first-name (TextField)
-- name-change_reason--group (RadioGroup)
-- name-change_reason__marriage (RadioButton)
-- signatures_owner (TextField)
-- signatures_owner-signature (Signature)
-- billing-frequency__annual (RadioButton)
-
-For radio buttons, always include:
-1. The radio group container with --group suffix
-2. Individual radio button options with __modifier format
-
-Format the output as:
-
-## Section-by-Section BEM Field Breakdown:
-
-### Section Name
-* bem-field-name-1 (FieldType)
-* bem-field-name-2 (FieldType)
-* radio-group-name--group (RadioGroup)
-* radio-group-name__option1 (RadioButton)
-* radio-group-name__option2 (RadioButton)
-
-### Another Section  
-* bem-field-name-4 (FieldType)
-* bem-field-name-5 (FieldType)
-
-Field types to use: TextField, Checkbox, RadioGroup, RadioButton, Signature, DateField"""
-        
-        # Return the enhanced prompt for Claude to execute naturally
-        return [TextContent(type="text", text=prompt)]
-        
-    except Exception as e:
-        error_result = {
-            "status": "error",
-            "tool": "generate_bem_field_names",
-            "error": str(e),
-            "pdf_filename": pdf_filename,
-            "message": f"Failed to prepare BEM field name generation: {str(e)}",
-            "timestamp": datetime.now().isoformat()
-        }
-        return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
-
 async def test_connection(include_version_info: bool = True) -> List[TextContent]:
     """Test the MCP server connection and dependencies."""
     try:
         test_result = {
             "status": "success",
-            "message": "✅ PDF Field Modifier + Enhanced BEM Name Generator is working correctly with Claude Desktop integration!",
-            "architecture": "Claude Desktop Intelligence + PyPDFForm PDF Field Modification + Enhanced BEM Field Naming",
+            "message": "✅ PDF Field Modifier is working correctly with Claude Desktop integration!",
+            "architecture": "Claude Desktop Intelligence + PyPDFForm PDF Field Modification",
             "server_name": "pdf-field-modifier",
-            "tools_available": ["generate_bem_field_names", "modify_pdf_fields_v2", "extract_pdf_fields_enhanced", "preview_field_renames", "test_connection"],
-            "workflow": "Upload PDF to Claude → Use generate_bem_field_names tool → Get BEM names with field types → Use modify_pdf_fields_v2 to rename fields",
+            "tools_available": ["modify_pdf_fields_v2", "extract_pdf_fields_enhanced", "preview_field_renames", "test_connection"],
+            "workflow": "Claude Desktop analyzes PDF → Generates BEM names → MCP server modifies PDF fields → Returns modified PDF",
             "capabilities": [
-                "🚀 Enhanced BEM field name generation with field types",
-                "Radio group handling with --group suffix",
-                "Financial services naming conventions",
                 "PyPDFForm-based field renaming (95%+ success rate)",
                 "RadioGroup and complex hierarchy support",
                 "All PDF field types supported",
                 "Progress tracking and validation",
                 "Automatic backup and safety features"
-            ],
-            "enhancements": [
-                "Field types displayed in output (TextField, Checkbox, etc.)",
-                "Radio group containers with --group suffix",
-                "Individual radio button options with __modifier",
-                "No JSON output for cleaner results"
             ],
             "integration": "Claude Desktop handles field extraction and BEM naming generation",
             "timestamp": datetime.now().isoformat()
@@ -315,7 +223,8 @@ async def test_connection(include_version_info: bool = True) -> List[TextContent
         }
         return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
 
-# PyPDFForm Tool Implementations (existing tools unchanged)
+# PyPDFForm Tool Implementations
+
 async def modify_pdf_fields_v2(
     pdf_path: str,
     field_mappings: Dict[str, str],
@@ -323,12 +232,25 @@ async def modify_pdf_fields_v2(
     validate_only: bool = False,
     progress_updates: bool = True
 ) -> List[TextContent]:
-    """Enhanced PDF field modification using PyPDFForm (v2.0.0)."""
+    """
+    Enhanced PDF field modification using PyPDFForm (v2.0.0).
+    
+    Args:
+        pdf_path: Path to PDF file
+        field_mappings: Dictionary mapping old field names to new field names
+        output_path: Optional output path (defaults to original_renamed.pdf)
+        validate_only: If True, only validate mappings without modification
+        progress_updates: Enable progress reporting for large operations
+    
+    Returns:
+        Result dictionary with success status and details
+    """
     
     try:
         if not PYPDFFORM_AVAILABLE or not WRAPPER_AVAILABLE:
             raise ImportError("PyPDFForm v2.0.0 not available. Please install: pip install PyPDFForm==3.1.2")
         
+        # Progress callback for reporting
         progress_messages = []
         def progress_callback(progress: ProgressUpdate):
             if progress_updates:
@@ -336,11 +258,13 @@ async def modify_pdf_fields_v2(
                 progress_messages.append(message)
                 logger.info(message)
         
+        # Initialize PyPDFForm renamer
         renamer = PyPDFFormFieldRenamer(
             pdf_path, 
             progress_callback=progress_callback if progress_updates else None
         )
         
+        # Load PDF
         if not renamer.load_pdf():
             return [TextContent(type="text", text=json.dumps({
                 "status": "error",
@@ -349,6 +273,7 @@ async def modify_pdf_fields_v2(
                 "timestamp": datetime.now().isoformat()
             }, indent=2))]
         
+        # Validate mappings
         validation_results = renamer.validate_mappings(field_mappings)
         if validation_results.get('errors'):
             return [TextContent(type="text", text=json.dumps({
@@ -368,14 +293,19 @@ async def modify_pdf_fields_v2(
                 "timestamp": datetime.now().isoformat()
             }, indent=2))]
         
+        # Perform field renaming
         results = renamer.rename_fields(field_mappings)
+        
+        # Calculate success metrics
         successful = sum(1 for r in results if r.success)
         total = len(results)
         success_rate = (successful / total * 100) if total > 0 else 0
         
+        # Generate output path if not provided
         if not output_path:
             output_path = pdf_path.replace('.pdf', '_renamed.pdf')
         
+        # Save modified PDF
         if renamer.save_pdf(output_path):
             result = {
                 "status": "success",
@@ -418,16 +348,36 @@ async def modify_pdf_fields_v2(
         }
         return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
 
+
 async def preview_field_renames(pdf_path: str, field_mappings: Dict[str, str]) -> List[TextContent]:
-    """Preview field renaming without making changes."""
+    """
+    Preview field renaming without making changes.
+    
+    Args:
+        pdf_path: Path to PDF file
+        field_mappings: Dictionary of proposed field name mappings
+    
+    Returns:
+        Preview results with validation and impact analysis
+    """
+    
     return await modify_pdf_fields_v2(
         pdf_path=pdf_path,
         field_mappings=field_mappings,
         validate_only=True
     )
 
+
 async def extract_pdf_fields_enhanced(pdf_path: str) -> List[TextContent]:
-    """Extract all form fields from PDF with enhanced metadata."""
+    """
+    Extract all form fields from PDF with enhanced metadata.
+    
+    Args:
+        pdf_path: Path to PDF file
+    
+    Returns:
+        Dictionary containing field information and metadata
+    """
     
     try:
         if not PYPDFFORM_AVAILABLE or not WRAPPER_AVAILABLE:
@@ -464,7 +414,6 @@ async def extract_pdf_fields_enhanced(pdf_path: str) -> List[TextContent]:
                 ]
             },
             "next_steps": [
-                "Use generate_bem_field_names to get BEM field names",
                 "Use modify_pdf_fields_v2 for actual field renaming",
                 "Use preview_field_renames to validate changes first"
             ],
@@ -486,14 +435,17 @@ async def extract_pdf_fields_enhanced(pdf_path: str) -> List[TextContent]:
         return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
 
 if __name__ == "__main__":
-    """Run the COMPLETE MCP server when executed directly."""
+    """
+    Run the COMPLETE MCP server when executed directly.
+    Usage: python pdf_field_modifier_complete.py
+    """
     import asyncio
     
     async def main():
         try:
             from mcp.server.stdio import stdio_server
             
-            logger.info("Starting PDF Field Modifier + Enhanced BEM Name Generator MCP Server...")
+            logger.info("Starting COMPLETE PDF Field Modifier MCP Server...")
             async with stdio_server() as (read_stream, write_stream):
                 await app.run(
                     read_stream, 
@@ -501,7 +453,7 @@ if __name__ == "__main__":
                     app.create_initialization_options()
                 )
         except Exception as e:
-            logger.error(f"Failed to start MCP server: {str(e)}")
+            logger.error(f"Failed to start COMPLETE MCP server: {str(e)}")
             sys.exit(1)
     
     asyncio.run(main())
